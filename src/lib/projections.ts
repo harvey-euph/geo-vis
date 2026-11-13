@@ -6,6 +6,7 @@ export type FlatProjectionId =
   | "mercator"
   | "equalEarth"
   | "naturalEarth";
+export type ProjectionModeId = "globe" | FlatProjectionId;
 
 export interface FlatProjectionInfo {
   id: FlatProjectionId;
@@ -13,6 +14,54 @@ export interface FlatProjectionInfo {
   subtitle: string;
   description: string;
 }
+
+export interface ProjectionModeInfo {
+  id: ProjectionModeId;
+  name: string;
+  shortName: string;
+  subtitle: string;
+  description: string;
+  is3D?: boolean;
+}
+
+export const ALL_PROJECTIONS: ProjectionModeInfo[] = [
+  {
+    id: "globe",
+    name: "3D 地球 (3D Globe)",
+    shortName: "3D 地球",
+    subtitle: "Spherical 3D · 擬真球體",
+    description: "真實三維地球球體視角，支援自由旋轉、傾斜視角與立體視覺。",
+    is3D: true,
+  },
+  {
+    id: "equirectangular",
+    name: "Equirectangular (等距圓柱投影)",
+    shortName: "等距圓柱",
+    subtitle: "Plate Carrée · 經緯度等距",
+    description: "經線與緯線皆為等距平行直線，緯度間距完全相等，適合直接對照經緯度座標。",
+  },
+  {
+    id: "equalEarth",
+    name: "Equal Earth (等面積偽圓柱投影)",
+    shortName: "Equal Earth",
+    subtitle: "Equal-Area · 面積比例真實",
+    description: "保持全球各區域真實相對面積比例，避免高緯度地區過度放大。",
+  },
+  {
+    id: "naturalEarth",
+    name: "Natural Earth (自然地球折衷投影)",
+    shortName: "Natural Earth",
+    subtitle: "Compromise · 視覺均衡",
+    description: "兼具形狀與面積平衡的偽圓柱投影，高緯度經線平滑收斂。",
+  },
+  {
+    id: "mercator",
+    name: "Web Mercator (正軸等角圓柱投影)",
+    shortName: "Web Mercator",
+    subtitle: "Conformal · 標準網路地圖",
+    description: "保持局部角度與方向正確，高緯度面積會顯著放大。",
+  },
+];
 
 export const FLAT_PROJECTIONS: FlatProjectionInfo[] = [
   {

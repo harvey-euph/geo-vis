@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "nginx:start": "./scripts/nginx-cmd start",
+    "nginx:stop": "./scripts/nginx-cmd stop",
+    "nginx:status": "./scripts/nginx-cmd status",
     "lint": "next lint",
     "preprocess": "node --max-old-space-size=8192 scripts/preprocess-data.mjs"
   },

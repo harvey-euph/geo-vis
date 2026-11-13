@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+#
+# nginx-cmd: Management script for local Nginx server serving 'npm run build' assets
+# Usage: ./scripts/nginx-cmd [start|stop|restart|status]
+#
+
+set -e
+
+# Resolve repository root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Runtime paths
+RUN_DIR="$REPO_ROOT/.nginx"
+CONF_FILE="$RUN_DIR/nginx.conf"
+PID_FILE="$RUN_DIR/nginx.pid"
+LOG_DIR="$RUN_DIR/logs"
+TEMP_DIR="$RUN_DIR/temp"
+OUT_DIR="$REPO_ROOT/out"
+
+# Port configuration (default 8080, can be overridden via PORT env var)
+PORT="${PORT:-8080}"
+
+# Locate nginx binary
+NGINX_BIN="$(which nginx 2>/dev/null || true)"
+if [ -z "$NGINX_BIN" ]; then
+  if [ -x "/usr/sbin/nginx" ]; then
+    NGINX_BIN="/usr/sbin/nginx"
+  elif [ -x "/usr/local/bin/nginx" ]; then
+    NGINX_BIN="/usr/local/bin/nginx"
+  else
+    echo "[nginx-cmd] Error: nginx binary not found in PATH or /usr/sbin/nginx." >&2
+    exit 1
+  fi
+fi
+
+# Locate mime.types
+MIME_TYPES="/etc/nginx/mime.types"
+if [ ! -f "$MIME_TYPES" ]; then
+  MIME_TYPES="/usr/local/etc/nginx/mime.types"
+fi
+
+get_pid() {
+  if [ -f "$PID_FILE" ]; then
+    cat "$PID_FILE" 2>/dev/null || true
+  fi
+}
+
+is_running() {
+  local pid
+  pid="$(get_pid)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    local exe_name
+    exe_name="$(basename "$(readlink -f "/proc/$pid/exe" 2>/dev/null || echo "")")"
+    if [ "$exe_name" = "nginx" ]; then
+      return 0
+    fi
+  fi
+  # Clean up stale PID file if process died or PID was reused by another process
+  if [ -f "$PID_FILE" ]; then
+    rm -f "$PID_FILE"
+  fi
+  return 1
+}
+
+ensure_directories() {
+  mkdir -p "$LOG_DIR" \
+    "$TEMP_DIR/client_body" \
+    "$TEMP_DIR/proxy" \
+    "$TEMP_DIR/fastcgi" \
+    "$TEMP_DIR/uwsgi" \
+    "$TEMP_DIR/scgi"
+}
+
+generate_config() {
+  ensure_directories
+
+  local mime_include=""
+  if [ -f "$MIME_TYPES" ]; then
+    mime_include="include $MIME_TYPES;"
+  fi
+
+  cat > "$CONF_FILE" <<EOF
+worker_processes 1;
+pid $PID_FILE;
+error_log $LOG_DIR/error.log warn;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    $mime_include
+    default_type application/octet-stream;
+
+    types {
+        application/octet-stream fgb;
+    }
+
+    access_log $LOG_DIR/access.log;
+
+    # Temp directories for non-root execution
+    client_body_temp_path $TEMP_DIR/client_body;
+    proxy_temp_path $TEMP_DIR/proxy;
+    fastcgi_temp_path $TEMP_DIR/fastcgi;
+    uwsgi_temp_path $TEMP_DIR/uwsgi;
+    scgi_temp_path $TEMP_DIR/scgi;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+
+    # Gzip compression for static text assets (excluding binary .fgb)
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript image/svg+xml;
+
+    server {
+        listen $PORT;
+        server_name localhost 127.0.0.1;
+        root $OUT_DIR;
+        index index.html;
+
+        # FlatGeobuf & Data Range Requests & CORS
+        location ~* \.(fgb|json)$ {
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Range, Accept-Ranges, Content-Range, Content-Type" always;
+            add_header Access-Control-Expose-Headers "Content-Range, Content-Length, Accept-Ranges" always;
+
+            expires 1h;
+            add_header Cache-Control "public, max-age=3600" always;
+        }
+
+        # Next.js Static Hashed Chunks
+        location /_next/static/ {
+            expires 1y;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
+
+        # SPA Routing & HTML Fallback
+        location / {
+            try_files \$uri \$uri.html \$uri/ /index.html =404;
+            add_header Cache-Control "no-cache" always;
+        }
+
+        error_page 404 /404.html;
+    }
+}
+EOF
+}
+
+check_build_assets() {
+  if [ ! -f "$OUT_DIR/index.html" ]; then
+    echo "[nginx-cmd] 'out/index.html' not found. Building project with 'npm run build'..."
+    (cd "$REPO_ROOT" && npm run build)
+    if [ ! -f "$OUT_DIR/index.html" ]; then
+      echo "[nginx-cmd] Error: 'npm run build' did not produce 'out/index.html'." >&2
+      exit 1
+    fi
+  fi
+}
+
+start_nginx() {
+  if is_running; then
+    local pid
+    pid="$(get_pid)"
+    echo "[nginx-cmd] Nginx is already running (PID: $pid). Automatically restarting..."
+    stop_nginx
+    sleep 0.5
+  fi
+
+  check_build_assets
+  generate_config
+
+  # Test configuration
+  if ! "$NGINX_BIN" -t -c "$CONF_FILE" >/dev/null 2>&1; then
+    echo "[nginx-cmd] Error: Nginx configuration test failed:" >&2
+    "$NGINX_BIN" -t -c "$CONF_FILE"
+    exit 1
+  fi
+
+  # Start nginx
+  "$NGINX_BIN" -c "$CONF_FILE"
+
+  # Wait for PID file to appear
+  local waited=0
+  while [ $waited -lt 20 ]; do
+    if is_running; then
+      break
+    fi
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+
+  if is_running; then
+    local pid
+    pid="$(get_pid)"
+    echo "[nginx-cmd] Nginx started successfully!"
+    echo "[nginx-cmd] PID: $pid"
+    echo "[nginx-cmd] Root: $OUT_DIR"
+    echo "[nginx-cmd] URL: http://localhost:$PORT"
+  else
+    echo "[nginx-cmd] Error: Nginx failed to start. Check logs at: $LOG_DIR/error.log" >&2
+    exit 1
+  fi
+}
+
+stop_nginx() {
+  if ! is_running; then
+    echo "[nginx-cmd] Nginx is not running."
+    return 0
+  fi
+
+  local pid
+  pid="$(get_pid)"
+  echo "[nginx-cmd] Stopping Nginx (PID: $pid)..."
+
+  # Attempt graceful stop via nginx signal
+  if [ -f "$CONF_FILE" ]; then
+    "$NGINX_BIN" -c "$CONF_FILE" -s quit 2>/dev/null || kill "$pid" 2>/dev/null || true
+  else
+    kill "$pid" 2>/dev/null || true
+  fi
+
+  # Wait for process to exit
+  local waited=0
+  while [ $waited -lt 30 ]; do
+    if ! is_running; then
+      break
+    fi
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+
+  # Force kill if still running
+  if is_running; then
+    echo "[nginx-cmd] Force killing PID: $pid..."
+    kill -9 "$pid" 2>/dev/null || true
+    sleep 0.2
+  fi
+
+  rm -f "$PID_FILE"
+  echo "[nginx-cmd] Nginx stopped."
+}
+
+status_nginx() {
+  if is_running; then
+    local pid
+    pid="$(get_pid)"
+    echo "[nginx-cmd] Nginx is running (PID: $pid, URL: http://localhost:$PORT)."
+  else
+    echo "[nginx-cmd] Nginx is stopped."
+  fi
+}
+
+case "${1:-}" in
+  start)
+    start_nginx
+    ;;
+  stop)
+    stop_nginx
+    ;;
+  restart)
+    stop_nginx
+    sleep 0.5
+    start_nginx
+    ;;
+  status)
+    status_nginx
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    echo ""
+    echo "Commands:"
+    echo "  start    Start Nginx (automatically restarts if already started)"
+    echo "  stop     Stop Nginx"
+    echo "  restart  Restart Nginx"
+    echo "  status   Show Nginx running status"
+    echo ""
+    echo "Environment variables:"
+    echo "  PORT     HTTP listen port (default: 8080)"
+    exit 1
+    ;;
+esac

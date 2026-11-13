@@ -3,6 +3,7 @@ node_modules/
 .next/
 out/
 build/
+.nginx/
 .DS_Store
 *.pem
 npm-debug.log*

@@ -1,5 +1,6 @@
 import { geojson as fgbGeojson } from "flatgeobuf";
 import type { Feature, MultiPolygon, Polygon } from "geojson";
+import { cleanPolygonGeometry } from "./geometry-cleaner";
 
 export type AdmLevel = "ADM0" | "ADM1" | "ADM2";
 
@@ -10,9 +11,15 @@ export interface AdminFeatureProperties {
   shapeType: AdmLevel;
   adm0Name: string;
   bboxStr?: string;
+  drilldownRole?: "base" | "clicked" | "hovered" | "wide-context";
 }
 
-export type AdminFeature = Feature<Polygon | MultiPolygon, AdminFeatureProperties>;
+export type AdminFeature = Feature<
+  Polygon | MultiPolygon,
+  AdminFeatureProperties
+> & {
+  rawGeometry?: Polygon | MultiPolygon;
+};
 
 export interface CountryMeta {
   shapeGroup: string;
@@ -53,7 +60,13 @@ async function deserializeFgbUrl(url: string): Promise<AdminFeature[]> {
   const iter = fgbGeojson.deserialize(buffer) as AsyncIterable<AdminFeature>;
   for await (const feat of iter) {
     if (feat && feat.geometry) {
-      features.push(feat);
+      const rawGeometry = feat.geometry;
+      const cleanedGeometry = cleanPolygonGeometry(rawGeometry);
+      features.push({
+        ...feat,
+        rawGeometry,
+        geometry: cleanedGeometry,
+      });
     }
   }
   return features;

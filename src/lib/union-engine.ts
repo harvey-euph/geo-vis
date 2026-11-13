@@ -36,6 +36,7 @@ export interface InteractiveMapFeatureProperties {
   bboxStr: string;
   isHovered: boolean;
   isSelected: boolean;
+  drilldownRole?: "base" | "clicked" | "hovered" | "wide-context";
 }
 
 export type InteractiveMapFeature = Feature<
@@ -249,7 +250,8 @@ export function buildInteractiveFeatureCollection(
   rawFeatures: AdminFeature[],
   groups: RegionUnionGroup[],
   hoveredTargetId: string | null,
-  selectedTargetIds: Set<string>
+  selectedTargetIds: Set<string>,
+  featureRoles?: Map<string, "base" | "clicked" | "hovered" | "wide-context">
 ): FeatureCollection<Polygon | MultiPolygon, InteractiveMapFeatureProperties> {
   // Map member shapeID -> group
   const memberToGroup = new Map<string, RegionUnionGroup>();
@@ -272,6 +274,10 @@ export function buildInteractiveFeatureCollection(
     const { shapeID, shapeName, shapeGroup, shapeType, adm0Name, bboxStr } =
       f.properties;
     const group = memberToGroup.get(shapeID);
+    const role: "base" | "clicked" | "hovered" | "wide-context" =
+      featureRoles?.get(shapeID) ||
+      (f.properties as any).drilldownRole ||
+      "base";
 
     if (!group) {
       // Standard separated region
@@ -295,6 +301,7 @@ export function buildInteractiveFeatureCollection(
           bboxStr: bboxStr || "[-180,-85,180,85]",
           isHovered: hoveredTargetId === targetId,
           isSelected: selectedTargetIds.has(targetId),
+          drilldownRole: role,
         },
         geometry: f.geometry,
       });
@@ -329,6 +336,7 @@ export function buildInteractiveFeatureCollection(
           bboxStr: JSON.stringify(combinedBbox),
           isHovered: hoveredTargetId === targetId,
           isSelected: selectedTargetIds.has(targetId),
+          drilldownRole: role,
         },
         geometry: f.geometry,
       });
@@ -369,6 +377,7 @@ export function buildInteractiveFeatureCollection(
           bboxStr: JSON.stringify(combinedBbox),
           isHovered: hoveredTargetId === targetId,
           isSelected: selectedTargetIds.has(targetId),
+          drilldownRole: "base",
         },
         geometry: dissolvedGeom,
       });
