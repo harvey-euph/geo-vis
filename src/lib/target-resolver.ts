@@ -1,5 +1,5 @@
 import type { AdminFeature, AdmLevel, CountryMeta } from "./fgb-loader";
-import { parseBbox } from "./fgb-loader";
+import { getCountryFitBbox, getFeatureFitBbox, parseBbox } from "./fgb-loader";
 import {
   type CountrySubdivisionHierarchy,
   loadCountryHierarchy,
@@ -21,6 +21,23 @@ export interface ResolvedTarget {
   targetId: string;
   drilldown: DrilldownTarget | null;
 }
+
+export const TARGET_ALIASES: Record<string, string> = {
+  HKG: "CHN::Hong Kong Special Administrative Region",
+  HK: "CHN::Hong Kong Special Administrative Region",
+  MAC: "CHN::Macau Special Administrative Region",
+  MO: "CHN::Macau Special Administrative Region",
+  PRI: "USA::Puerto Rico",
+  PR: "USA::Puerto Rico",
+  FLK: "117",
+  FK: "117",
+  PSE: "118",
+  PS: "118",
+  ATF: "FRA",
+  TF: "FRA",
+  NCL: "FRA",
+  NC: "FRA",
+};
 
 export function normalizeKey(str: string): string {
   return (str || "")
@@ -163,8 +180,12 @@ export async function resolveSingleTarget(
 ): Promise<ResolvedTarget | null> {
   if (!spec || !spec.trim()) return null;
 
+  // Check full spec alias first (e.g. "HKG" -> "CHN::Hong Kong Special Administrative Region")
+  const upperSpec = spec.trim().toUpperCase();
+  const effectiveSpec = TARGET_ALIASES[upperSpec] || spec.trim();
+
   // Split by "::"
-  const rawParts = spec.split("::").map((p) => p.trim());
+  const rawParts = effectiveSpec.split("::").map((p) => p.trim());
   const parts: string[] = [];
   for (const p of rawParts) {
     if (p) parts.push(p);
@@ -188,9 +209,13 @@ export async function resolveSingleTarget(
       shapeID: country.shapeID,
       shapeName: country.shapeName,
       shapeType: "ADM0",
-      bbox: country.bbox,
+      bbox: getCountryFitBbox(country),
       targetId: country.shapeID,
-      drilldown: null,
+      drilldown: {
+        shapeGroup: country.shapeGroup,
+        adm1Id: null,
+        adm2Id: null,
+      },
     };
   }
 
@@ -209,9 +234,13 @@ export async function resolveSingleTarget(
       shapeID: country.shapeID,
       shapeName: country.shapeName,
       shapeType: "ADM0",
-      bbox: country.bbox,
+      bbox: getCountryFitBbox(country),
       targetId: country.shapeID,
-      drilldown: null,
+      drilldown: {
+        shapeGroup: country.shapeGroup,
+        adm1Id: null,
+        adm2Id: null,
+      },
     };
   }
 
@@ -222,7 +251,7 @@ export async function resolveSingleTarget(
     // Check ADM1 first
     const adm1Match = matchFeature(subQuery, hierarchy.adm1Features);
     if (adm1Match) {
-      const bbox = parseBbox(adm1Match.properties.bboxStr, country.bbox);
+      const bbox = getFeatureFitBbox(adm1Match, getCountryFitBbox(country));
       return {
         rawQuery: spec,
         shapeGroup: country.shapeGroup,
@@ -244,7 +273,7 @@ export async function resolveSingleTarget(
     if (adm2Match) {
       const parentAdm1 =
         hierarchy.adm2ToAdm1.get(adm2Match.properties.shapeID) || null;
-      const bbox = parseBbox(adm2Match.properties.bboxStr, country.bbox);
+      const bbox = getFeatureFitBbox(adm2Match, getCountryFitBbox(country));
       return {
         rawQuery: spec,
         shapeGroup: country.shapeGroup,
@@ -270,9 +299,13 @@ export async function resolveSingleTarget(
       shapeID: country.shapeID,
       shapeName: country.shapeName,
       shapeType: "ADM0",
-      bbox: country.bbox,
+      bbox: getCountryFitBbox(country),
       targetId: country.shapeID,
-      drilldown: null,
+      drilldown: {
+        shapeGroup: country.shapeGroup,
+        adm1Id: null,
+        adm2Id: null,
+      },
     };
   }
 
@@ -296,7 +329,7 @@ export async function resolveSingleTarget(
     const parentAdm1 =
       hierarchy.adm2ToAdm1.get(adm2Match.properties.shapeID) ||
       (adm1Match ? adm1Match.properties.shapeID : null);
-    const bbox = parseBbox(adm2Match.properties.bboxStr, country.bbox);
+    const bbox = getFeatureFitBbox(adm2Match, getCountryFitBbox(country));
     return {
       rawQuery: spec,
       shapeGroup: country.shapeGroup,
@@ -315,7 +348,7 @@ export async function resolveSingleTarget(
 
   // If ADM2 not matched but ADM1 matched
   if (adm1Match) {
-    const bbox = parseBbox(adm1Match.properties.bboxStr, country.bbox);
+    const bbox = getFeatureFitBbox(adm1Match, getCountryFitBbox(country));
     return {
       rawQuery: spec,
       shapeGroup: country.shapeGroup,
@@ -339,9 +372,13 @@ export async function resolveSingleTarget(
     shapeID: country.shapeID,
     shapeName: country.shapeName,
     shapeType: "ADM0",
-    bbox: country.bbox,
+    bbox: getCountryFitBbox(country),
     targetId: country.shapeID,
-    drilldown: null,
+    drilldown: {
+      shapeGroup: country.shapeGroup,
+      adm1Id: null,
+      adm2Id: null,
+    },
   };
 }
 

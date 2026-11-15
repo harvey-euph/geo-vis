@@ -95,6 +95,7 @@ http {
 
     types {
         application/octet-stream fgb;
+        text/csv csv;
     }
 
     access_log $LOG_DIR/access.log;
@@ -125,7 +126,7 @@ http {
         index index.html;
 
         # FlatGeobuf & Data Range Requests & CORS
-        location ~* \.(fgb|json)$ {
+        location ~* \.(fgb|json|csv)$ {
             add_header Access-Control-Allow-Origin * always;
             add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
             add_header Access-Control-Allow-Headers "Range, Accept-Ranges, Content-Range, Content-Type" always;
@@ -271,6 +272,11 @@ case "${1:-}" in
     ;;
   status)
     status_nginx
+    ;;
+  run)
+    check_build_assets
+    generate_config
+    exec "$NGINX_BIN" -g "daemon off;" -c "$CONF_FILE"
     ;;
   *)
     echo "Usage: $0 {start|stop|restart|status}"

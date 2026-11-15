@@ -1,6 +1,7 @@
 import polygonClipping from "polygon-clipping";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { AdmLevel, AdminFeature } from "./fgb-loader";
+import { isCapitalFeature } from "./capital-manager";
 
 export type UnionCycleState = "separated" | "grouped" | "dissolved";
 
@@ -37,6 +38,7 @@ export interface InteractiveMapFeatureProperties {
   isHovered: boolean;
   isSelected: boolean;
   drilldownRole?: "base" | "clicked" | "hovered" | "wide-context";
+  isCapital?: boolean;
 }
 
 export type InteractiveMapFeature = Feature<
@@ -249,9 +251,10 @@ export function computeCombinedBbox(features: AdminFeature[]): [number, number, 
 export function buildInteractiveFeatureCollection(
   rawFeatures: AdminFeature[],
   groups: RegionUnionGroup[],
-  hoveredTargetId: string | null,
-  selectedTargetIds: Set<string>,
-  featureRoles?: Map<string, "base" | "clicked" | "hovered" | "wide-context">
+  hoveredTargetId: string | null = null,
+  selectedTargetIds: Set<string> = new Set(),
+  featureRoles?: Map<string, "base" | "clicked" | "hovered" | "wide-context">,
+  selectedCountryGroups: Set<string> = new Set()
 ): FeatureCollection<Polygon | MultiPolygon, InteractiveMapFeatureProperties> {
   // Map member shapeID -> group
   const memberToGroup = new Map<string, RegionUnionGroup>();
@@ -279,6 +282,10 @@ export function buildInteractiveFeatureCollection(
       (f.properties as any).drilldownRole ||
       "base";
 
+    const isCapital =
+      selectedCountryGroups.has(shapeGroup) &&
+      isCapitalFeature(shapeGroup, shapeType, shapeName, shapeID);
+
     if (!group) {
       // Standard separated region
       const targetId = shapeID;
@@ -302,6 +309,7 @@ export function buildInteractiveFeatureCollection(
           isHovered: hoveredTargetId === targetId,
           isSelected: selectedTargetIds.has(targetId),
           drilldownRole: role,
+          isCapital,
         },
         geometry: f.geometry,
       });
@@ -337,6 +345,7 @@ export function buildInteractiveFeatureCollection(
           isHovered: hoveredTargetId === targetId,
           isSelected: selectedTargetIds.has(targetId),
           drilldownRole: role,
+          isCapital,
         },
         geometry: f.geometry,
       });
@@ -378,6 +387,7 @@ export function buildInteractiveFeatureCollection(
           isHovered: hoveredTargetId === targetId,
           isSelected: selectedTargetIds.has(targetId),
           drilldownRole: "base",
+          isCapital: false,
         },
         geometry: dissolvedGeom,
       });

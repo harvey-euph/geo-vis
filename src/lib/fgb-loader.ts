@@ -97,6 +97,14 @@ export async function loadAdm0Features(): Promise<AdminFeature[]> {
   return promise;
 }
 
+export function getCachedCountrySubdivisions(
+  shapeGroup: string,
+  level: "ADM1" | "ADM2"
+): AdminFeature[] | null {
+  const cache = level === "ADM1" ? adm1ByCountryCache : adm2ByCountryCache;
+  return cache.get(shapeGroup) || null;
+}
+
 export async function loadCountrySubdivisions(
   shapeGroup: string,
   level: "ADM1" | "ADM2"
@@ -142,26 +150,13 @@ export async function loadMultipleCountrySubdivisions(
   return results.flat();
 }
 
-export function parseBbox(
-  bboxStr: string | undefined,
-  fallback: [number, number, number, number] = [-180, -85, 180, 85]
-): [number, number, number, number] {
-  if (!bboxStr) return fallback;
-  try {
-    const parsed = JSON.parse(bboxStr);
-    if (Array.isArray(parsed) && parsed.length === 4) {
-      return [
-        Number(parsed[0]),
-        Number(parsed[1]),
-        Number(parsed[2]),
-        Number(parsed[3]),
-      ];
-    }
-  } catch {
-    // ignore
-  }
-  return fallback;
-}
+export {
+  COUNTRY_PRIMARY_FIT_BBOX,
+  computeLargestPolygonBbox,
+  getCountryFitBbox,
+  getFeatureFitBbox,
+  parseBbox,
+} from "./bbox-helper";
 
 export function bboxesIntersect(
   a: [number, number, number, number],

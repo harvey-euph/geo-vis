@@ -15,6 +15,7 @@ export interface CountrySubdivisionHierarchy {
 
 const hierarchyCache = new Map<string, CountrySubdivisionHierarchy>();
 const inFlightHierarchy = new Map<string, Promise<CountrySubdivisionHierarchy>>();
+const allSubdivisionsById = new Map<string, AdminFeature>();
 
 function pointInPolygonCoords(
   x: number,
@@ -172,6 +173,9 @@ export async function loadCountryHierarchy(
         adm2ToAdm1,
       };
 
+      for (const f of adm1) allSubdivisionsById.set(f.properties.shapeID, f);
+      for (const f of adm2) allSubdivisionsById.set(f.properties.shapeID, f);
+
       hierarchyCache.set(shapeGroup, hierarchy);
       inFlightHierarchy.delete(shapeGroup);
       return hierarchy;
@@ -183,6 +187,30 @@ export async function loadCountryHierarchy(
 
   inFlightHierarchy.set(shapeGroup, promise);
   return promise;
+}
+
+export function getSubdivisionFeatureById(
+  shapeID: string
+): AdminFeature | null {
+  return allSubdivisionsById.get(shapeID) || null;
+}
+
+export function getAllCachedCountryHierarchies(): CountrySubdivisionHierarchy[] {
+  return Array.from(hierarchyCache.values());
+}
+
+/**
+ * Check if a string looks like an internal database shapeID, code or hash,
+ * rather than a human-readable geographic name.
+ * e.g. "47310658B99930143900280", "22064153B20160481648260", "ADM0_TWN"
+ */
+export function isRawShapeId(str: string): boolean {
+  if (!str) return false;
+  const s = str.trim();
+  if (/^[0-9]+B[0-9]+$/i.test(s)) return true;
+  if (/^[0-9A-F]{15,}$/i.test(s)) return true;
+  if (/^ADM\d+_[A-Z0-9]+$/i.test(s)) return true;
+  return false;
 }
 
 export function getParentAdm1Id(

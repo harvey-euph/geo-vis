@@ -14,6 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-Hant">
+      <head>
+        <link rel="preconnect" href="https://flagcdn.com" crossOrigin="anonymous" />
+      </head>
       <body className="antialiased selection:bg-sky-500/30 selection:text-sky-200">
         {children}
       </body>
