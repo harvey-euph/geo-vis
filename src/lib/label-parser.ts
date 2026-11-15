@@ -241,23 +241,6 @@ export function extractAtomicTargets(node: TargetAstNode): string[] {
   return Array.from(set);
 }
 
-/**
- * Re-serializes an AST into a canonical expression string.
- */
-export function formatTargetAst(node: TargetAstNode): string {
-  if (node.type === "single") {
-    return node.target;
-  }
-  if (node.type === "dissolve") {
-    return node.children
-      .map((c) => (c.type === "single" ? c.target : `(${formatTargetAst(c)})`))
-      .join(" | ");
-  }
-  return node.children
-    .map((c) => (c.type === "single" ? c.target : `(${formatTargetAst(c)})`))
-    .join(" || ");
-}
-
 // -------------------------------------------------------------
 // 2. Label Content Column Parser
 // -------------------------------------------------------------

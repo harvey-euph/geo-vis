@@ -1,22 +1,6 @@
 import type { FeatureCollection } from "geojson";
 import type { AdminFeature, AdmLevel } from "@/lib/fgb-loader";
 import type { RegionUnionGroup, UnionCycleState } from "@/lib/union-engine";
-import {
-  ALL_PROJECTIONS,
-  type FlatProjectionId,
-  type MapMode,
-  type ProjectionModeId,
-} from "@/lib/projections";
-import { loadCountryHierarchy } from "@/lib/hierarchy-manager";
-
-export {
-  ALL_PROJECTIONS,
-  loadCountryHierarchy,
-  type AdmLevel,
-  type FlatProjectionId,
-  type MapMode,
-  type ProjectionModeId,
-};
 
 export type InteractionMode =
   | "local-hover"

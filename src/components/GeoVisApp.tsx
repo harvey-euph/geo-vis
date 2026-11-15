@@ -4,24 +4,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation";
 import type maplibregl from "maplibre-gl";
 
+import type { AdmLevel } from "@/lib/fgb-loader";
+import { loadCountryHierarchy } from "@/lib/hierarchy-manager";
 import {
-  type DrilldownTarget,
-  type HoveredVertexInfo,
-  type InteractionMode,
-  type VertexFeatureProperties,
   ALL_PROJECTIONS,
   type FlatProjectionId,
   type MapMode,
   type ProjectionModeId,
-  type AdmLevel,
-  loadCountryHierarchy,
-} from "@/types/geovis";
-export type {
+} from "@/lib/projections";
+import type {
   DrilldownTarget,
   HoveredVertexInfo,
   InteractionMode,
   VertexFeatureProperties,
-};
+} from "@/types/geovis";
 
 import { useWindowDrag } from "@/components/hooks/useWindowDrag";
 import { useStarfieldRender } from "@/components/hooks/useStarfieldRender";
@@ -359,7 +355,6 @@ export default function GeoVisApp() {
     unionGroups: allUnionGroups,
     countryMetaMap,
     rawFeaturesById,
-    hierarchyConstraints,
   });
 
   // Hook 6: URL State & Parameter Parsing (Initial camera/projection + target resolution + share URL + live writeback)

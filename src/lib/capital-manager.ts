@@ -714,13 +714,6 @@ export const CAPITAL_MAP: Record<string, CountryCapitalConfig> = {
 };
 
 /**
- * Backward compatible mapping: shapeGroup -> ADM1 candidate names array
- */
-export const CAPITAL_ADM1_MAP: Record<string, string[]> = Object.fromEntries(
-  Object.entries(CAPITAL_MAP).map(([k, v]) => [k, v.adm1])
-);
-
-/**
  * Normalize a geographic name for resilient comparison.
  * Strips accents, punctuation, and converts to lowercase.
  */
@@ -799,17 +792,6 @@ export function isCapitalFeature(
 }
 
 /**
- * Backward compatible helper for ADM1 checks.
- */
-export function isCapitalAdm1(
-  shapeGroup: string,
-  shapeName: string,
-  shapeID?: string
-): boolean {
-  return isCapitalFeature(shapeGroup, "ADM1", shapeName, shapeID);
-}
-
-/**
  * Get display badge info for LeftHudInspector.
  * Returns whether it is the capital city itself or the enclosing ADM1 region.
  */
@@ -883,15 +865,3 @@ export function getSelectedCountryGroups(
 
   return groups;
 }
-
-/**
- * Styling constants for the Capital and Capital Enclosing Region.
- */
-export const CAPITAL_STYLE = {
-  fillColor: "#d97706", // Rich warm amber (Amber-600)
-  hoverFillColor: "#f59e0b", // Bright glowing amber (Amber-500)
-  lineColor: "#fbbf24", // Golden border (Amber-400)
-  hoverLineColor: "#fef08a", // Bright yellow-200 outline on hover
-  lineWidth: 1.8,
-  fillOpacity: 0.88,
-} as const;

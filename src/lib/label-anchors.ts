@@ -7,6 +7,7 @@
  * - `NOR::Innlandet` — sit on that ADM1's largest-polygon centroid.
  *   `NOR/Innlandet` is accepted too.
  * - `179.21,-8.52` — explicit WGS84 longitude, latitude.
+ *   The same form is used for flag codes that are not ADM0 rows, such as `HKG`.
  *
  * A self entry is the country's own shapeGroup. The camera fit box in
  * bbox-helper is only for framing and is not a label anchor.
@@ -109,7 +110,8 @@ export const LABEL_ANCHORS: Record<string, string> = {
   GNQ: "GNQ",
   GRC: "GRC",
   GRD: "GRD",
-  GRL: "GRL",
+  // Same ice-sheet point the Greenland flag already used.
+  GRL: "-42.6043,71.7069",
   GTM: "GTM",
   GUY: "GUY",
   HND: "HND",
@@ -245,6 +247,14 @@ export const LABEL_ANCHORS: Record<string, string> = {
   ZAF: "ZAF",
   ZMB: "ZMB",
   ZWE: "ZWE",
+  // Flag codes that alias into another country. Not ADM0 rows.
+  ATF: "69.3486,-49.3948",
+  FLK: "-59.5293,-51.7523",
+  HKG: "114.1694,22.3193",
+  MAC: "113.5439,22.1987",
+  NCL: "165.618,-20.9043",
+  PRI: "-66.5901,18.2208",
+  PSE: "35.2332,31.9522",
 };
 
 /**
@@ -289,6 +299,23 @@ export function getLabelAnchorSpec(shapeGroup: string): LabelAnchorSpec | null {
   const raw = LABEL_ANCHORS[shapeGroup];
   if (!raw) return null;
   return parseLabelAnchor(raw);
+}
+
+/** Coordinate anchor, or null when the entry is missing, self, or an ADM1 name. */
+export function getLabelAnchorCoord(key: string): [number, number] | null {
+  const spec = getLabelAnchorSpec(key);
+  if (!spec || spec.kind !== "coord") return null;
+  if (
+    Number.isFinite(spec.lng) &&
+    Number.isFinite(spec.lat) &&
+    spec.lng >= -180 &&
+    spec.lng <= 180 &&
+    spec.lat >= -90 &&
+    spec.lat <= 90
+  ) {
+    return [spec.lng, spec.lat];
+  }
+  return null;
 }
 
 export function getLabelAnchorBakedCenter(

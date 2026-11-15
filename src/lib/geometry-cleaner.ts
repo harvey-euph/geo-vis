@@ -1,10 +1,10 @@
-import type { Feature, Geometry, MultiPolygon, Polygon, Position } from "geojson";
+import type { MultiPolygon, Polygon, Position } from "geojson";
 
 /**
  * 2D Cross product / CCW test.
  * Returns > 0 if A->B->C turns counter-clockwise, < 0 if clockwise, 0 if collinear.
  */
-export function ccw(
+function ccw(
   ax: number,
   ay: number,
   bx: number,
@@ -19,7 +19,7 @@ export function ccw(
  * Strict segment intersection test between AB and CD.
  * Returns true if segment AB strictly crosses segment CD.
  */
-export function segmentsIntersect(
+function segmentsIntersect(
   ax: number,
   ay: number,
   bx: number,
@@ -44,7 +44,7 @@ export function segmentsIntersect(
  * Untangles local self-intersecting bowties (2-opt heuristic) within a sliding window.
  * Eliminates inverted loops, backtracks, and crossings in polygon rings while preserving geographical shape.
  */
-export function untangleRing(
+function untangleRing(
   ring: Position[],
   maxWindow: number = 15,
   maxPasses: number = 6
@@ -138,28 +138,4 @@ export function cleanPolygonGeometry<G extends Polygon | MultiPolygon>(
   }
 
   return geometry;
-}
-
-/**
- * Clean a GeoJSON feature's polygon geometry.
- */
-export function cleanFeature<F extends Feature<Polygon | MultiPolygon>>(
-  feature: F,
-  maxWindow: number = 15
-): F {
-  if (!feature.geometry) return feature;
-  return {
-    ...feature,
-    geometry: cleanPolygonGeometry(feature.geometry, maxWindow),
-  };
-}
-
-/**
- * Clean an array of GeoJSON features.
- */
-export function cleanFeatures<F extends Feature<Polygon | MultiPolygon>>(
-  features: F[],
-  maxWindow: number = 15
-): F[] {
-  return features.map((f) => cleanFeature(f, maxWindow));
 }

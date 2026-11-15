@@ -29,10 +29,11 @@ import {
 import {
   type RegionLabelConfig,
   computeFeatureCentroid,
-  computeRingCentroid,
+  computeGeometryCentroid,
   computeLabelSortKey,
   computeFeatureBbox,
 } from "./label-manager";
+import { getLabelAnchorCoord } from "./label-anchors";
 import { COUNTRY_PRIMARY_FIT_BBOX } from "./bbox-helper";
 import {
   type RegionUnionGroup,
@@ -298,27 +299,6 @@ export function resolveAstToUnionGroup(
   };
 }
 
-export const TERRITORY_FALLBACK_CENTROIDS: Record<string, [number, number]> = {
-  HKG: [114.1694, 22.3193], // Hong Kong
-  MAC: [113.5439, 22.1987], // Macau
-  PRI: [-66.5901, 18.2208], // Puerto Rico
-  NCL: [165.618, -20.9043], // New Caledonia
-  ATF: [69.3486, -49.3948], // French Southern Lands (Kerguelen)
-  FLK: [-59.5293, -51.7523], // Falkland Islands
-  PSE: [35.2332, 31.9522], // Palestine
-  GUM: [144.7937, 13.4443], // Guam
-  VIR: [-64.8963, 18.3358], // US Virgin Islands
-  ASM: [-170.1322, -14.271], // American Samoa
-  BMU: [-64.7574, 32.3078], // Bermuda
-  CYM: [-81.2546, 19.3133], // Cayman Islands
-  GIB: [-5.3536, 36.1408], // Gibraltar
-  GRL: [-42.6043, 71.7069], // Greenland
-  FRO: [-6.9118, 61.8926], // Faroe Islands
-  ABW: [-69.9683, 12.5211], // Aruba
-  CUW: [-68.99, 12.1696], // Curacao
-  SXM: [-63.0548, 18.0425], // Sint Maarten
-};
-
 /**
  * Builds active RegionLabelConfig list from parsed label dataset items in the viewport.
  */
@@ -342,7 +322,7 @@ export function buildDatasetLabelConfigs(
       // 1. Label anchored to union group centroid
       let center: [number, number] = [0, 0];
       if (unionGroup.dissolvedGeometry) {
-        center = computeGeometryCentroid(unionGroup.dissolvedGeometry);
+        center = computeGeometryCentroid(unionGroup.dissolvedGeometry) ?? [0, 0];
       }
       if (center[0] === 0 && center[1] === 0) {
         // Fallback to combined bbox center
@@ -403,8 +383,12 @@ export function buildDatasetLabelConfigs(
 
     let center: [number, number] = [0, 0];
     const upperTarget = item.rawTarget.trim().toUpperCase();
-    if (TERRITORY_FALLBACK_CENTROIDS[upperTarget]) {
-      center = TERRITORY_FALLBACK_CENTROIDS[upperTarget];
+    // A coordinate anchor on a code that is not this ADM0 (HKG -> Hong Kong)
+    // keeps that code as the label id. An ADM0 coordinate (GRL) only sets the point.
+    const pinned = getLabelAnchorCoord(upperTarget);
+    const territoryPin = Boolean(pinned) && upperTarget !== country.shapeGroup;
+    if (pinned) {
+      center = pinned;
     } else if (targetFeature) {
       center = computeFeatureCentroid(targetFeature);
     }
@@ -424,10 +408,10 @@ export function buildDatasetLabelConfigs(
     const sortKey = computeLabelSortKey(level, true, bbox);
 
     if (center[0] !== 0 || center[1] !== 0) {
-      const targetId = TERRITORY_FALLBACK_CENTROIDS[upperTarget]
+      const targetId = territoryPin
         ? upperTarget
         : (targetFeature?.properties.shapeID || country.shapeID);
-      const shapeGroup = TERRITORY_FALLBACK_CENTROIDS[upperTarget]
+      const shapeGroup = territoryPin
         ? upperTarget
         : (targetFeature?.properties.shapeGroup || country.shapeGroup);
 
@@ -455,35 +439,4 @@ export function buildDatasetLabelConfigs(
   return configs;
 }
 
-/**
- * Computes centroid for arbitrary MultiPolygon or Polygon geometry.
- */
-function computeGeometryCentroid(geom: Polygon | MultiPolygon): [number, number] {
-  if (geom.type === "Polygon") {
-    if (!geom.coordinates || geom.coordinates.length === 0) return [0, 0];
-    return computeRingCentroid(geom.coordinates[0]);
-  }
-  if (geom.type === "MultiPolygon") {
-    if (!geom.coordinates || geom.coordinates.length === 0) return [0, 0];
-    // Find largest polygon part
-    let maxArea = -1;
-    let bestCentroid: [number, number] = [0, 0];
-    for (const poly of geom.coordinates) {
-      if (poly.length === 0) continue;
-      const c = computeRingCentroid(poly[0]);
-      // Approximate area
-      let area = 0;
-      const ring = poly[0];
-      for (let i = 0; i < ring.length - 1; i++) {
-        area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
-      }
-      area = Math.abs(area);
-      if (area > maxArea) {
-        maxArea = area;
-        bestCentroid = c;
-      }
-    }
-    return bestCentroid;
-  }
-  return [0, 0];
-}
+

@@ -13,7 +13,7 @@ src/
 ├── app/                              # Next.js App Router 頁面進入點
 │   └── page.tsx
 ├── components/                       # UI 組件與地圖模組
-│   ├── GeoVisApp.tsx                 # 主應用協調器 (Top-level Coordinator, ~580 行)
+│   ├── GeoVisApp.tsx                 # 主應用協調器 (Top-level Coordinator)
 │   ├── TopNavigationBar.tsx          # 頂部控制列 (品牌、模式切換、下鑽路徑、國家搜尋)
 │   ├── OptionsWindow.tsx             # 浮動選項彈窗 (投影法清單、星空開關、URL 複製)
 │   ├── LeftHudInspector.tsx          # 左側 HUD (區域屬性、成員清單、頂點檢查、座標)
@@ -29,12 +29,18 @@ src/
 │   │   ├── usePolygonVertices.ts     # 幾何頂點座標提取、內外環識別與異常跨度偵測
 │   │   ├── useStarfieldRender.ts     # 3D 天球天體 Canvas 渲染迴圈 (RAF 60/120fps)
 │   │   ├── useWindowDrag.ts          # 選項視窗 Pointer Capture 拖曳與碰撞遮擋偵測
-│   │   └── useKeyboardShortcuts.ts   # 全域鍵盤快捷鍵 (ESC, P, T, U)
+│   │   ├── useKeyboardShortcuts.ts   # 全域鍵盤快捷鍵 (ESC, P, T, U)
+│   │   └── useRegionLabels.ts        # ISO3 與 CSV 標籤、圖片下載完成即換上
 │   └── map/
 │       └── map-layers.ts             # MapLibre Sources 與 Style Layers 宣告清單
 ├── lib/                              # 底層核心演算法與資料處理模組
 │   ├── bbox-helper.ts                # 本土主大陸邊界校正、跨 180° 換日線與海外屬地最適化視角運算
-│   ├── capital-manager.ts            # 全球國家首都 (Capital: ADM0 -> ADM1) 映射與專屬高亮配色管理
+│   ├── label-anchors.ts              # ADM0 與屬地旗標的標籤落點（自身、ADM1、座標）
+│   ├── label-hierarchy-resolver.ts   # CSV 標籤的階層約束與聯集解析
+│   ├── label-manager.ts              # 標籤中心、排序與圖片精靈
+│   ├── label-parser.ts               # 標籤 CSV 與 target 運算式
+│   ├── point-in-polygon.ts           # 點在多邊形內（含洞），階層配對與滑鼠命中共用
+│   ├── capital-manager.ts            # 全球國家首都 (Capital: ADM0 -> ADM1) 映射
 │   ├── fgb-loader.ts                 # FlatGeobuf 區塊串流載入與 Bounding Box 碰撞運算
 │   ├── hierarchy-manager.ts          # 國家層級行政架構快取與下鑽層級展開演算法
 │   ├── projections.ts                # 多投影座標正逆轉換 (Equal Earth, Natural Earth 等)

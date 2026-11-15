@@ -4,12 +4,7 @@ import {
   type CountrySubdivisionHierarchy,
   loadCountryHierarchy,
 } from "./hierarchy-manager";
-
-export interface DrilldownTarget {
-  shapeGroup: string;
-  adm1Id: string | null;
-  adm2Id: string | null;
-}
+import type { DrilldownTarget } from "@/types/geovis";
 
 export interface ResolvedTarget {
   rawQuery: string;

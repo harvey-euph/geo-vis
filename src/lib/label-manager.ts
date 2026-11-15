@@ -97,34 +97,43 @@ export function computeRingCentroid(ring: Position[]): [number, number] {
 
 /**
  * Largest-polygon centroid. Multi-polygons use the part with the greatest
- * ring area, which is the main landmass for an ADM0 left on its own code.
+ * ring area. Returns null when the geometry has no ring.
  */
-function largestPartCentroid(
-  feature: AdminFeature | Feature<Polygon | MultiPolygon>
-): [number, number] {
-  const geom = feature.geometry;
-  if (!geom) return [0, 0];
+export function computeGeometryCentroid(
+  geom: Polygon | MultiPolygon | null | undefined
+): [number, number] | null {
+  if (!geom) return null;
 
   if (geom.type === "Polygon") {
     if (geom.coordinates && geom.coordinates[0]) {
       return computeRingCentroid(geom.coordinates[0]);
     }
-  } else if (geom.type === "MultiPolygon") {
-    let maxArea = -1;
-    let bestRing: Position[] | null = null;
-    for (const poly of geom.coordinates) {
-      const ring = poly[0];
-      if (!ring || ring.length < 3) continue;
-      const area = Math.abs(computeRingArea(ring));
-      if (area > maxArea) {
-        maxArea = area;
-        bestRing = ring;
-      }
-    }
-    if (bestRing) {
-      return computeRingCentroid(bestRing);
+    return null;
+  }
+
+  let maxArea = -1;
+  let bestRing: Position[] | null = null;
+  for (const poly of geom.coordinates) {
+    const ring = poly[0];
+    if (!ring || ring.length < 3) continue;
+    const area = Math.abs(computeRingArea(ring));
+    if (area > maxArea) {
+      maxArea = area;
+      bestRing = ring;
     }
   }
+  return bestRing ? computeRingCentroid(bestRing) : null;
+}
+
+/**
+ * Largest-polygon centroid of a feature. An ADM0 left on its own code uses
+ * this as the main landmass. Falls back to bboxStr when the geometry is empty.
+ */
+function largestPartCentroid(
+  feature: AdminFeature | Feature<Polygon | MultiPolygon>
+): [number, number] {
+  const center = computeGeometryCentroid(feature.geometry);
+  if (center) return center;
 
   const bboxStr = (feature.properties as { bboxStr?: string } | null)?.bboxStr;
   if (bboxStr) {
@@ -238,10 +247,6 @@ export function computeFeatureCentroid(
 
 // In-memory cache for rendered label ImageData to eliminate duplicate canvas draws
 const labelImageCache = new Map<string, LabelImageData>();
-
-export function clearLabelImageCache(): void {
-  labelImageCache.clear();
-}
 
 export function isLabelImageCached(id: string): boolean {
   return labelImageCache.has(id);
@@ -893,29 +898,6 @@ export function defaultLabelResolver(
   }
 
   return null;
-}
-
-/**
- * Generates label configurations for a list of administrative features.
- */
-export function generateLabelsForFeatures(
-  features: AdminFeature[],
-  level: AdmLevel,
-  customResolver?: (feat: AdminFeature, lvl: AdmLevel) => RegionLabelConfig | null
-): RegionLabelConfig[] {
-  const resolver = customResolver || defaultLabelResolver;
-  const result: RegionLabelConfig[] = [];
-  const seenIds = new Set<string>();
-
-  for (const f of features) {
-    const cfg = resolver(f, level);
-    if (cfg && !seenIds.has(cfg.id)) {
-      seenIds.add(cfg.id);
-      result.push(cfg);
-    }
-  }
-
-  return result;
 }
 
 /**

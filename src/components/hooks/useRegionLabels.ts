@@ -24,10 +24,7 @@ import {
   renderTextLabel,
 } from "@/lib/label-manager";
 import type { ParsedLabelDataset } from "@/lib/label-parser";
-import {
-  type TargetHierarchyConstraints,
-  buildDatasetLabelConfigs,
-} from "@/lib/label-hierarchy-resolver";
+import { buildDatasetLabelConfigs } from "@/lib/label-hierarchy-resolver";
 import type { RegionUnionGroup } from "@/lib/union-engine";
 import { EMPTY_FC } from "@/types/geovis";
 
@@ -113,15 +110,10 @@ interface UseRegionLabelsOptions {
   effectiveAdmLevel: AdmLevel;
   mapMode: MapMode;
   flatProjection: FlatProjectionId;
-  customLabelResolver?: (
-    feature: AdminFeature,
-    level: AdmLevel
-  ) => RegionLabelConfig | null;
   activeLabelDataset?: ParsedLabelDataset | null;
   unionGroups?: RegionUnionGroup[];
   countryMetaMap?: Map<string, CountryMeta>;
   rawFeaturesById?: Map<string, AdminFeature>;
-  hierarchyConstraints?: TargetHierarchyConstraints;
 }
 
 export function useRegionLabels({
@@ -134,12 +126,10 @@ export function useRegionLabels({
   effectiveAdmLevel,
   mapMode,
   flatProjection,
-  customLabelResolver,
   activeLabelDataset,
   unionGroups = [],
   countryMetaMap,
   rawFeaturesById,
-  hierarchyConstraints,
 }: UseRegionLabelsOptions) {
   // Bumped only when a loaded ADM1 anchor disagrees with its baked center.
   const [labelAnchorEpoch, setLabelAnchorEpoch] = useState(0);
@@ -229,8 +219,6 @@ export function useRegionLabels({
     // "然後當開啟 ISO3 代碼的時候，如果開啟的 csv label 沒有指向那個地方，那就顯示 ISO3 代碼"
     const isoConfigs: RegionLabelConfig[] = [];
     if (showIso3Labels) {
-      const resolver = customLabelResolver || defaultLabelResolver;
-
       if (effectiveAdmLevel === "ADM0") {
         // Global ADM0 view: display ISO3 labels for countries not covered by CSV label
         const sourceFeatures =
@@ -246,7 +234,7 @@ export function useRegionLabels({
             continue; // CSV label already points to this region!
           }
 
-          const cfg = resolver(f, "ADM0");
+          const cfg = defaultLabelResolver(f, "ADM0");
           if (cfg) isoConfigs.push(cfg);
         }
       } else {
@@ -271,7 +259,7 @@ export function useRegionLabels({
             continue; // Covered by CSV label
           }
 
-          const cfg = resolver(f, effectiveAdmLevel);
+          const cfg = defaultLabelResolver(f, effectiveAdmLevel);
           if (cfg) isoConfigs.push(cfg);
         }
 
@@ -297,7 +285,7 @@ export function useRegionLabels({
             continue;
           }
 
-          const cfg = resolver(f, "ADM0");
+          const cfg = defaultLabelResolver(f, "ADM0");
           if (cfg) isoConfigs.push(cfg);
         }
       }
@@ -314,7 +302,6 @@ export function useRegionLabels({
     adm0Features,
     effectiveActiveRawFeatures,
     effectiveAdmLevel,
-    customLabelResolver,
     labelAnchorEpoch,
   ]);
 

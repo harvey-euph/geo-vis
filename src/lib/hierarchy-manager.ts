@@ -3,7 +3,7 @@ import {
   loadCountrySubdivisions,
   parseBbox,
 } from "./fgb-loader";
-import type { Position } from "geojson";
+import { pointInPolygonCoords } from "./point-in-polygon";
 
 export interface CountrySubdivisionHierarchy {
   shapeGroup: string;
@@ -16,41 +16,6 @@ export interface CountrySubdivisionHierarchy {
 const hierarchyCache = new Map<string, CountrySubdivisionHierarchy>();
 const inFlightHierarchy = new Map<string, Promise<CountrySubdivisionHierarchy>>();
 const allSubdivisionsById = new Map<string, AdminFeature>();
-
-function pointInPolygonCoords(
-  x: number,
-  y: number,
-  rings: Position[][]
-): boolean {
-  if (rings.length === 0) return false;
-  const exterior = rings[0];
-  let inside = false;
-  for (let i = 0, j = exterior.length - 1; i < exterior.length; j = i++) {
-    const xi = exterior[i][0];
-    const yi = exterior[i][1];
-    const xj = exterior[j][0];
-    const yj = exterior[j][1];
-    const intersect =
-      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
-  }
-  if (!inside) return false;
-  for (let r = 1; r < rings.length; r++) {
-    const hole = rings[r];
-    let inHole = false;
-    for (let i = 0, j = hole.length - 1; i < hole.length; j = i++) {
-      const xi = hole[i][0];
-      const yi = hole[i][1];
-      const xj = hole[j][0];
-      const yj = hole[j][1];
-      const intersect =
-        yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-      if (intersect) inHole = !inHole;
-    }
-    if (inHole) return false;
-  }
-  return true;
-}
 
 function getRepresentativePoint(geom: AdminFeature["geometry"]): [number, number] {
   if (!geom || !geom.coordinates) return [0, 0];
